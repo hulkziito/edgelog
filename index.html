@@ -1,468 +1,267 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EssentTradingJournal</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-:root {
-  --bg: #0d0f0e;
-  --surface: #141716;
-  --surface2: #1c1f1d;
-  --border: #252825;
-  --accent: #c8f54a;
-  --accent2: #4af587;
-  --red: #f54a4a;
-  --text: #e8ebe8;
-  --muted: #6b7068;
-  --muted2: #3d4039;
-  --radius: 10px;
-  --font-head: 'Syne', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
-  --font-mono: 'DM Mono', monospace;
-}
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; min-height: 100vh; }
 
-/* LAYOUT */
-.app { display: flex; flex-direction: column; min-height: 100vh; }
-.topbar { display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
-.logo { font-family: var(--font-head); font-weight: 800; font-size: 18px; letter-spacing: -0.5px; color: var(--accent); }
-.logo span { color: var(--text); }
-.nav { display: flex; gap: 2px; margin-left: 24px; }
-.nav-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: var(--muted); font-family: var(--font-body); transition: all .15s; }
-.nav-btn.active, .nav-btn:hover { background: var(--surface2); color: var(--text); }
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.add-btn { display: flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 8px; background: var(--accent); color: #0d0f0e; font-weight: 600; font-size: 13px; cursor: pointer; border: none; font-family: var(--font-body); transition: opacity .15s; }
-.add-btn:hover { opacity: .88; }
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-/* MAIN */
-.main { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* STATS */
-.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
-.stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
-.stat-value { font-family: var(--font-mono); font-size: 22px; font-weight: 500; }
-.stat-value.pos { color: var(--accent2); }
-.stat-value.neg { color: var(--red); }
-.stat-value.neutral { color: var(--text); }
-.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+/* FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
+};
 
-/* CONTENT AREA */
-.content-row { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
-/* CHART */
-.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
-.card-title { font-family: var(--font-head); font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 16px; }
-.chart-wrap { height: 180px; position: relative; }
+setPersistence(auth, browserLocalPersistence);
 
-/* SIDEBAR STATS */
-.side-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-.side-row { display: flex; justify-content: space-between; align-items: center; }
-.side-row-label { font-size: 12px; color: var(--muted); }
-.side-row-val { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
-.progress-bar { height: 4px; background: var(--muted2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
-.progress-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .5s; }
-.divider { height: 1px; background: var(--border); }
+let currentUser = null;
+let trades = [];
+let journals = [];
+let emoVal = null;
+let jEmoVal = null;
+let currentView = 'dash';
+const charts = {};
 
-/* TABLE */
-.table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
-.filters { display: flex; gap: 6px; }
-.filter-btn { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: var(--font-body); transition: all .15s; }
-.filter-btn.active { border-color: var(--accent); color: var(--accent); background: #c8f54a12; }
-table { width: 100%; border-collapse: collapse; }
-thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; border-bottom: 1px solid var(--border); background: var(--surface2); white-space: nowrap; }
-tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
-tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: var(--surface2); }
-tbody td { padding: 11px 14px; font-size: 13px; }
-.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: var(--font-mono); }
-.badge.long { background: #c8f54a18; color: var(--accent); }
-.badge.short { background: #f54a4a18; color: var(--red); }
-.badge.open { background: #4af58718; color: var(--accent2); }
-.mono { font-family: var(--font-mono); }
-.pos { color: var(--accent2); }
-.neg { color: var(--red); }
-.empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
-.empty-state p { font-size: 14px; margin-bottom: 8px; }
-.empty-state span { font-size: 12px; }
+/* SUBSCRIPTIONS */
+let unsubTrades = null;
+let unsubJournal = null;
 
-/* MODAL */
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 560px; overflow: hidden; animation: modalIn .2s ease; }
-@keyframes modalIn { from { opacity:0; transform:translateY(12px) scale(.97); } to { opacity:1; transform:none; } }
-.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
-.modal-head h2 { font-family: var(--font-head); font-size: 16px; font-weight: 700; }
-.close-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-.modal-body { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-height: 70vh; overflow-y: auto; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group.full { grid-column: 1 / -1; }
-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
-input, select, textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-body); font-size: 13px; padding: 9px 12px; width: 100%; outline: none; transition: border-color .15s; }
-input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-select option { background: var(--surface2); }
-textarea { resize: vertical; min-height: 70px; }
-.emotion-row { display: flex; gap: 8px; }
-.emotion-btn { flex: 1; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; text-align: center; transition: all .15s; }
-.emotion-btn.selected { border-color: var(--accent); background: #c8f54a18; }
-.modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
-.btn-secondary { padding: 9px 20px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; }
-.btn-primary { padding: 9px 20px; border-radius: 8px; border: none; background: var(--accent); color: #0d0f0e; font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; }
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUser = user;
 
-/* VIEW */
-.view { display: none; }
-.view.active { display: contents; }
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="topbar">
-    <div class="logo">EDGE<span>log</span></div>
-    <nav class="nav">
-      <button class="nav-btn active" onclick="switchView('dashboard',this)">Dashboard</button>
-      <button class="nav-btn" onclick="switchView('trades',this)">Trades</button>
-    </nav>
-    <div class="topbar-right">
-      <button class="add-btn" onclick="openModal()">+ Registar trade</button>
-    </div>
-  </div>
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display  = 'flex';
+    document.getElementById('user-name').textContent = user.displayName || user.email;
 
-  <div class="main">
-    <!-- STATS -->
-    <div class="stats-row" id="stats-row"></div>
+    subscribeData();
+  } else {
+    currentUser = null;
 
-    <!-- DASHBOARD VIEW -->
-    <div id="view-dashboard" style="display:contents">
-      <div class="content-row">
-        <div class="chart-card">
-          <div class="card-title">Curva de equity</div>
-          <div class="chart-wrap"><canvas id="equity-chart"></canvas></div>
-        </div>
-        <div class="side-card" id="side-card">
-          <div class="card-title" style="margin-bottom:0">Breakdown</div>
-          <div id="side-content"></div>
-        </div>
-      </div>
-      <div class="table-card">
-        <div class="table-header">
-          <div class="card-title" style="margin:0">Últimos trades</div>
-        </div>
-        <div id="table-recent"></div>
-      </div>
-    </div>
+    if (unsubTrades) unsubTrades();
+    if (unsubJournal) unsubJournal();
 
-    <!-- TRADES VIEW -->
-    <div id="view-trades" style="display:none">
-      <div class="table-card">
-        <div class="table-header">
-          <div class="card-title" style="margin:0">Todos os trades</div>
-          <div class="filters">
-            <button class="filter-btn active" onclick="setFilter('all',this)">Todos</button>
-            <button class="filter-btn" onclick="setFilter('long',this)">Long</button>
-            <button class="filter-btn" onclick="setFilter('short',this)">Short</button>
-            <button class="filter-btn" onclick="setFilter('win',this)">Ganhos</button>
-            <button class="filter-btn" onclick="setFilter('loss',this)">Perdas</button>
-          </div>
-        </div>
-        <div id="table-all"></div>
-      </div>
-    </div>
-  </div>
-</div>
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display  = 'none';
+  }
+});
 
-<!-- MODAL -->
-<div class="overlay" id="modal" style="display:none" onclick="closeOnBg(event)">
-  <div class="modal">
-    <div class="modal-head">
-      <h2>Novo trade</h2>
-      <button class="close-btn" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Símbolo</label>
-        <input id="f-symbol" placeholder="ex: EURUSD, AAPL, BTC" />
-      </div>
-      <div class="form-group">
-        <label>Setup / Estratégia</label>
-        <input id="f-setup" placeholder="ex: Breakout, Pullback..." />
-      </div>
-      <div class="form-group">
-        <label>Direcção</label>
-        <select id="f-dir"><option value="long">Long ↑</option><option value="short">Short ↓</option></select>
-      </div>
-      <div class="form-group">
-        <label>Mercado / Tipo</label>
-        <select id="f-market"><option>Forex</option><option>Ações</option><option>Cripto</option><option>Futuros</option><option>Índices</option><option>CFDs</option></select>
-      </div>
-      <div class="form-group">
-        <label>Preço de entrada</label>
-        <input id="f-entry" type="number" step="any" placeholder="0.00" />
-      </div>
-      <div class="form-group">
-        <label>Preço de saída</label>
-        <input id="f-exit" type="number" step="any" placeholder="0.00 (vazio = aberto)" />
-      </div>
-      <div class="form-group">
-        <label>Quantidade / Lotes</label>
-        <input id="f-qty" type="number" step="any" placeholder="0.00" />
-      </div>
-      <div class="form-group">
-        <label>Risco (€/$)</label>
-        <input id="f-risk" type="number" step="any" placeholder="ex: 50" />
-      </div>
-      <div class="form-group">
-        <label>Data entrada</label>
-        <input id="f-date" type="datetime-local" />
-      </div>
-      <div class="form-group">
-        <label>Sessão</label>
-        <select id="f-session"><option value="london">Londres</option><option value="newyork">Nova Iorque</option><option value="asia">Ásia</option><option value="overlap">Sobreposição</option></select>
-      </div>
-      <div class="form-group full">
-        <label>Estado emocional (antes do trade)</label>
-        <div class="emotion-row" id="emotion-row">
-          <button class="emotion-btn" onclick="setEmotion(1,this)" title="Muito mau">😰</button>
-          <button class="emotion-btn" onclick="setEmotion(2,this)" title="Mau">😕</button>
-          <button class="emotion-btn" onclick="setEmotion(3,this)" title="Neutro">😐</button>
-          <button class="emotion-btn" onclick="setEmotion(4,this)" title="Bom">🙂</button>
-          <button class="emotion-btn" onclick="setEmotion(5,this)" title="Óptimo">🔥</button>
-        </div>
-      </div>
-      <div class="form-group full">
-        <label>Notas / Raciocínio</label>
-        <textarea id="f-notes" placeholder="Porquê entrei, o que vi, o que correu bem ou mal..."></textarea>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" onclick="saveTrade()">Guardar trade</button>
-    </div>
-  </div>
-</div>
+/* SUBSCRIBE FIRESTORE (REAL TIME) */
+function subscribeData() {
+  const tradesCol = collection(db, 'users', currentUser.uid, 'trades');
+  const journalCol = collection(db, 'users', currentUser.uid, 'journal');
 
-<script>
-let trades = [
-  {id:1,symbol:'EURUSD',setup:'Breakout',dir:'long',market:'Forex',entry:1.0820,exit:1.0891,qty:1,risk:50,pnl:71,date:'2024-05-10T09:15',session:'london',emotion:4,notes:'Breakout limpo acima da resistência das 9h.'},
-  {id:2,symbol:'GBPJPY',setup:'Pullback',dir:'short',market:'Forex',entry:196.40,exit:195.60,qty:0.5,risk:40,pnl:40,date:'2024-05-10T14:30',session:'newyork',emotion:3,notes:'Pullback para EMA21 em contexto bearish.'},
-  {id:3,symbol:'AAPL',setup:'Gap Fill',dir:'long',market:'Ações',entry:182.50,exit:180.10,qty:10,risk:60,pnl:-24,date:'2024-05-11T15:45',session:'newyork',emotion:2,notes:'Gap fill não confirmado — saí cedo.'},
-  {id:4,symbol:'BTCUSD',setup:'Breakout',dir:'long',market:'Cripto',entry:62100,exit:63800,qty:0.05,risk:80,pnl:85,date:'2024-05-12T11:00',session:'london',emotion:5,notes:''},
-  {id:5,symbol:'NAS100',setup:'Rejeição',dir:'short',market:'Índices',entry:18450,exit:18280,qty:0.2,risk:70,pnl:34,date:'2024-05-13T14:00',session:'newyork',emotion:4,notes:'Rejeição na zona de oferta, bom R:R.'},
-  {id:6,symbol:'USDJPY',setup:'Pullback',dir:'long',market:'Forex',entry:155.20,exit:null,qty:1,risk:50,pnl:null,date:'2024-05-14T09:30',session:'tokyo',emotion:3,notes:'Trade aberto.'},
-];
-let emotionVal = null;
-let filterState = 'all';
-let equityChart = null;
-
-const emotions = ['','😰','😕','😐','🙂','🔥'];
-
-function fmt(n, prefix='') {
-  if(n===null||n===undefined) return '—';
-  const sign = n>=0?'+':'';
-  return sign + prefix + n.toFixed(2);
-}
-function fmtR(t) {
-  if(!t.risk||!t.pnl) return '—';
-  return (t.pnl/t.risk).toFixed(2)+'R';
-}
-
-function calcStats(arr) {
-  const closed = arr.filter(t=>t.pnl!==null);
-  const wins = closed.filter(t=>t.pnl>0);
-  const losses = closed.filter(t=>t.pnl<0);
-  const totalPnl = closed.reduce((a,t)=>a+t.pnl,0);
-  const winRate = closed.length ? (wins.length/closed.length*100) : 0;
-  const avgWin = wins.length ? wins.reduce((a,t)=>a+t.pnl,0)/wins.length : 0;
-  const avgLoss = losses.length ? losses.reduce((a,t)=>a+Math.abs(t.pnl),0)/losses.length : 0;
-  const pf = avgLoss>0 ? (wins.reduce((a,t)=>a+t.pnl,0)/losses.reduce((a,t)=>a+Math.abs(t.pnl),0)) : null;
-  return {closed,wins,losses,totalPnl,winRate,avgWin,avgLoss,pf,open:arr.filter(t=>t.pnl===null)};
-}
-
-function renderStats() {
-  const s = calcStats(trades);
-  const pnlClass = s.totalPnl>=0?'pos':'neg';
-  document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card"><div class="stat-label">P&L Total</div><div class="stat-value ${pnlClass}">${fmt(s.totalPnl,'€')}</div><div class="stat-sub">${s.closed.length} trades fechados</div></div>
-    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${s.winRate>=50?'pos':'neg'}">${s.winRate.toFixed(0)}%</div><div class="stat-sub">${s.wins.length}W / ${s.losses.length}L</div></div>
-    <div class="stat-card"><div class="stat-label">Profit Factor</div><div class="stat-value ${s.pf&&s.pf>=1?'pos':'neg'}">${s.pf?s.pf.toFixed(2):'—'}</div><div class="stat-sub">Ganhos / Perdas</div></div>
-    <div class="stat-card"><div class="stat-label">Avg Win</div><div class="stat-value pos">${fmt(s.avgWin,'€')}</div><div class="stat-sub">Avg Loss: ${fmt(-s.avgLoss,'€')}</div></div>
-    <div class="stat-card"><div class="stat-label">Trades abertos</div><div class="stat-value neutral">${s.open.length}</div><div class="stat-sub">${trades.length} total</div></div>`;
-}
-
-function renderEquity() {
-  const closed = trades.filter(t=>t.pnl!==null).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  let cum = 0;
-  const labels = ['Start'];
-  const data = [0];
-  closed.forEach(t=>{ cum+=t.pnl; labels.push(t.symbol); data.push(parseFloat(cum.toFixed(2))); });
-
-  const ctx = document.getElementById('equity-chart');
-  if(!ctx) return;
-  if(equityChart) equityChart.destroy();
-  const isDark = true;
-  const posColor = '#4af587';
-  const negColor = '#f54a4a';
-  const lastVal = data[data.length-1]||0;
-
-  equityChart = new Chart(ctx, {
-    type:'line',
-    data:{
-      labels,
-      datasets:[{
-        data,
-        borderColor: lastVal>=0 ? posColor : negColor,
-        borderWidth:2,
-        pointRadius:3,
-        pointBackgroundColor: lastVal>=0 ? posColor : negColor,
-        fill:true,
-        backgroundColor:(ctx2)=>{
-          const g=ctx2.chart.ctx.createLinearGradient(0,0,0,180);
-          g.addColorStop(0, lastVal>=0?'rgba(74,245,135,.18)':'rgba(245,74,74,.18)');
-          g.addColorStop(1,'rgba(0,0,0,0)');
-          return g;
-        },
-        tension:.35
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`€${c.parsed.y>=0?'+':''}${c.parsed.y.toFixed(2)}`}}},
-      scales:{
-        x:{grid:{color:'#252825'},ticks:{color:'#6b7068',font:{size:10},maxTicksLimit:8}},
-        y:{grid:{color:'#252825'},ticks:{color:'#6b7068',font:{size:10,family:'DM Mono'},callback:v=>`€${v>=0?'+':''}${v}`}}
-      }
+  unsubTrades = onSnapshot(
+    query(tradesCol, orderBy('date', 'desc')),
+    snap => {
+      trades = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
     }
+  );
+
+  unsubJournal = onSnapshot(
+    query(journalCol, orderBy('date', 'desc')),
+    snap => {
+      journals = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (currentView === 'journal') renderJournal();
+    }
+  );
+}
+
+/* AUTH */
+window.authLogin = async () => {
+  const email = document.getElementById('a-email').value;
+  const pass  = document.getElementById('a-pass').value;
+  await signInWithEmailAndPassword(auth, email, pass);
+};
+
+window.authRegister = async () => {
+  const email = document.getElementById('a-email').value;
+  const pass  = document.getElementById('a-pass').value;
+  const name  = document.getElementById('a-name').value;
+
+  const cred = await createUserWithEmailAndPassword(auth, email, pass);
+  if (name) await updateProfile(cred.user, { displayName: name });
+};
+
+window.authGoogle = async () => {
+  await signInWithPopup(auth, new GoogleAuthProvider());
+};
+
+window.authLogout = () => signOut(auth);
+
+/* FIRESTORE OPS */
+function tradesCol() {
+  return collection(db, 'users', currentUser.uid, 'trades');
+}
+
+async function fbAddTrade(obj) {
+  return await addDoc(tradesCol(), { ...obj, createdAt: serverTimestamp() });
+}
+
+async function fbUpdateTrade(id, obj) {
+  return await setDoc(doc(db, 'users', currentUser.uid, 'trades', id), obj, { merge: true });
+}
+
+async function fbDeleteTrade(id) {
+  return await deleteDoc(doc(db, 'users', currentUser.uid, 'trades', id));
+}
+
+/* UI HELPERS */
+function renderAll() {
+  renderStats();
+  if (currentView === 'dash') renderDash();
+  if (currentView === 'trades') renderTrades();
+  if (currentView === 'analytics') renderAnalytics();
+  if (currentView === 'journal') renderJournal();
+  if (currentView === 'risk') renderRisk();
+}
+
+/* NAV */
+window.nav = (v, btn) => {
+  currentView = v;
+  document.querySelectorAll('.nb').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+
+  ['dash','trades','analytics','journal','risk'].forEach(id=>{
+    document.getElementById('v-'+id).style.display = id===v?'block':'none';
   });
-}
 
-function renderSide() {
-  const s = calcStats(trades);
-  const setupMap = {};
-  trades.filter(t=>t.pnl!==null&&t.setup).forEach(t=>{
-    if(!setupMap[t.setup]) setupMap[t.setup]={pnl:0,count:0};
-    setupMap[t.setup].pnl+=t.pnl;
-    setupMap[t.setup].count++;
-  });
-  const setups = Object.entries(setupMap).sort((a,b)=>b[1].pnl-a[1].pnl);
+  renderAll();
+};
 
-  let html = `
-    <div class="divider"></div>
-    <div class="side-row"><span class="side-row-label">Melhor dia</span><span class="side-row-val pos">+€${Math.max(...trades.filter(t=>t.pnl>0).map(t=>t.pnl)).toFixed(2)}</span></div>
-    <div class="side-row"><span class="side-row-label">Pior trade</span><span class="side-row-val neg">€${Math.min(...trades.filter(t=>t.pnl!==null).map(t=>t.pnl)).toFixed(2)}</span></div>
-    <div class="divider"></div>
-    <div class="side-row-label" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">P&L por setup</div>`;
-  setups.forEach(([name,{pnl,count}])=>{
-    const cls = pnl>=0?'pos':'neg';
-    html+=`<div><div class="side-row"><span class="side-row-label">${name} <span style="color:var(--muted2)">(${count})</span></span><span class="side-row-val ${cls}">${fmt(pnl,'€')}</span></div></div>`;
-  });
-  document.getElementById('side-content').innerHTML = html;
-}
+/* JOURNAL SAVE (unchanged logic) */
+window.saveJournalEntry = async () => {
+  const entry = {
+    date: document.getElementById('j-date').value,
+    emo: jEmoVal || 3,
+    ctx: document.getElementById('j-ctx').value,
+    lessons: document.getElementById('j-les').value,
+    goals: document.getElementById('j-goal').value,
+  };
 
-function tradeRow(t) {
-  const pnlClass = t.pnl===null?'neutral':t.pnl>=0?'pos':'neg';
-  const pnlTxt = t.pnl===null?'<span class="badge open">Aberto</span>':`<span class="mono ${pnlClass}">${fmt(t.pnl,'€')}</span>`;
-  return `<tr>
-    <td><strong style="font-family:var(--font-mono)">${t.symbol}</strong></td>
-    <td><span class="badge ${t.dir}">${t.dir==='long'?'Long ↑':'Short ↓'}</span></td>
-    <td style="color:var(--muted)">${t.setup||'—'}</td>
-    <td style="color:var(--muted)">${t.market}</td>
-    <td class="mono">${t.entry}</td>
-    <td class="mono">${t.exit||'—'}</td>
-    <td>${pnlTxt}</td>
-    <td class="mono" style="color:var(--muted)">${fmtR(t)}</td>
-    <td>${t.emotion?emotions[t.emotion]:'—'}</td>
-    <td style="color:var(--muted);font-size:12px">${new Date(t.date).toLocaleDateString('pt-PT')}</td>
-  </tr>`;
-}
+  await setDoc(
+    doc(db, 'users', currentUser.uid, 'journal', entry.date.replace(/-/g,'')),
+    { ...entry, updatedAt: serverTimestamp() }
+  );
+};
 
-function tableHtml(arr) {
-  if(!arr.length) return `<div class="empty-state"><p>Sem trades para mostrar</p><span>Clica em "Registar trade" para começar</span></div>`;
-  return `<table><thead><tr>
-    <th>Símbolo</th><th>Direcção</th><th>Setup</th><th>Mercado</th>
-    <th>Entrada</th><th>Saída</th><th>P&L</th><th>R</th><th>😊</th><th>Data</th>
-  </tr></thead><tbody>${arr.map(tradeRow).join('')}</tbody></table>`;
-}
-
-function renderTables() {
-  const recent = [...trades].reverse().slice(0,6);
-  document.getElementById('table-recent').innerHTML = tableHtml(recent);
-  let filtered = [...trades].reverse();
-  if(filterState==='long') filtered=filtered.filter(t=>t.dir==='long');
-  else if(filterState==='short') filtered=filtered.filter(t=>t.dir==='short');
-  else if(filterState==='win') filtered=filtered.filter(t=>t.pnl>0);
-  else if(filterState==='loss') filtered=filtered.filter(t=>t.pnl<0);
-  document.getElementById('table-all').innerHTML = tableHtml(filtered);
-}
-
-function render() { renderStats(); renderEquity(); renderSide(); renderTables(); }
-
-function switchView(v, btn) {
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('view-dashboard').style.display = v==='dashboard'?'contents':'none';
-  document.getElementById('view-trades').style.display = v==='trades'?'block':'none';
-}
-
-function setFilter(f, btn) {
-  filterState = f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderTables();
-}
-
-function openModal() {
-  emotionVal = null;
-  document.getElementById('modal').style.display = 'flex';
-  const now = new Date();
-  now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
-  document.getElementById('f-date').value = now.toISOString().slice(0,16);
-  ['f-symbol','f-setup','f-entry','f-exit','f-qty','f-risk','f-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  document.querySelectorAll('.emotion-btn').forEach(b=>b.classList.remove('selected'));
-}
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-function closeOnBg(e) { if(e.target===document.getElementById('modal')) closeModal(); }
-
-function setEmotion(v, btn) {
-  emotionVal = v;
-  document.querySelectorAll('.emotion-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
-
-function saveTrade() {
-  const symbol = document.getElementById('f-symbol').value.trim().toUpperCase();
+/* SAVE TRADE */
+window.saveTrade = async () => {
+  const sym = document.getElementById('f-sym').value;
   const entry = parseFloat(document.getElementById('f-entry').value);
   const qty = parseFloat(document.getElementById('f-qty').value);
-  if(!symbol||isNaN(entry)||isNaN(qty)) { alert('Preenche pelo menos o símbolo, entrada e quantidade.'); return; }
-  const exit = parseFloat(document.getElementById('f-exit').value)||null;
-  const risk = parseFloat(document.getElementById('f-risk').value)||null;
+  const exit = parseFloat(document.getElementById('f-exit').value) || null;
+
+  if (!sym || isNaN(entry) || isNaN(qty)) return;
+
   const dir = document.getElementById('f-dir').value;
+
   let pnl = null;
-  if(exit!==null) {
-    const raw = dir==='long'?(exit-entry)*qty:(entry-exit)*qty;
-    pnl = parseFloat(raw.toFixed(2));
+  if (exit !== null) {
+    pnl = dir === 'long'
+      ? (exit - entry) * qty
+      : (entry - exit) * qty;
   }
-  const t = {
-    id: Date.now(),
-    symbol,
-    setup: document.getElementById('f-setup').value.trim()||null,
+
+  const obj = {
+    sym,
     dir,
-    market: document.getElementById('f-market').value,
-    entry, exit, qty, risk, pnl,
+    entry,
+    exit,
+    qty,
+    pnl,
+    setup: document.getElementById('f-setup').value,
+    mkt: document.getElementById('f-mkt').value,
     date: document.getElementById('f-date').value,
-    session: document.getElementById('f-session').value,
-    emotion: emotionVal,
-    notes: document.getElementById('f-notes').value.trim()
+    emo: emoVal
   };
-  trades.push(t);
-  closeModal();
-  render();
+
+  await fbAddTrade(obj);
+};
+
+/* SIMPLE STATS */
+function renderStats() {
+  const el = document.getElementById('stats-row');
+  const pnl = trades.reduce((a,t)=>a+(t.pnl||0),0);
+
+  el.innerHTML = `
+    <div class="sc"><div class="sc-label">P&L</div><div class="sc-val">${pnl.toFixed(2)}</div></div>
+    <div class="sc"><div class="sc-label">Trades</div><div class="sc-val">${trades.length}</div></div>
+  `;
 }
 
-render();
+/* PLACEHOLDERS */
+window.renderTrades = () => {};
+window.renderDash = () => {};
+window.renderAnalytics = () => {};
+window.renderJournal = () => {};
+window.renderRisk = () => {};
+
 </script>
+
+<style>
+body{background:#070c12;color:#fff;font-family:Outfit}
+#app-screen{display:none}
+</style>
+
+</head>
+
+<body>
+
+<div id="auth-screen">
+  <input id="a-name" placeholder="nome">
+  <input id="a-email" placeholder="email">
+  <input id="a-pass" type="password" placeholder="password">
+
+  <button id="auth-submit-btn" data-action="login" onclick="authLogin()">Entrar</button>
+  <button onclick="authRegister()">Criar</button>
+  <button onclick="authGoogle()">Google</button>
+</div>
+
+<div id="app-screen">
+  <div id="stats-row"></div>
+</div>
+
 </body>
 </html>
